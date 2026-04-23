@@ -9,6 +9,7 @@ const configSchema = z.object({
     host: z.string().default('0.0.0.0'),
     nodeEnv: z.string().default('development'),
   }),
+
   deriv: z.object({
     apiBaseUrl: z.string().url().default('https://api.derivws.com'),
     wsPublicUrl: z.string().url().default('wss://api.derivws.com/trading/v1/options/ws/public'),
@@ -19,30 +20,36 @@ const configSchema = z.object({
     redirectUri: z.string().url().default('http://localhost:3001/api/auth/callback'),
     appId: z.string().min(1, 'DERIV_APP_ID is required'),
   }),
+
   frontend: z.object({
     url: z.string().url().default('http://localhost:3000'),
     prodUrl: z.string().url().default('https://yourdomain.com'),
   }),
+
   redis: z.object({
     host: z.string().default('localhost'),
     port: z.number().default(6379),
     db: z.number().default(0),
     password: z.string().optional(),
   }),
+
   security: z.object({
     jwtSecret: z.string().min(1, 'JWT_SECRET is required'),
     corsOrigin: z.string().url().default('http://localhost:3000'),
   }),
+
   logging: z.object({
     level: z.string().default('info'),
     file: z.string().default('logs/app.log'),
   }),
+
   websocket: z.object({
     heartbeatInterval: z.number().default(30000),
     maxSubscriptions: z.number().default(100),
     reconnectMaxAttempts: z.number().default(5),
     reconnectDelay: z.number().default(1000),
   }),
+
   rateLimit: z.object({
     windowMs: z.number().default(900000),
     maxRequests: z.number().default(100),
@@ -99,4 +106,3 @@ export const config = configSchema.parse(envConfig);
 
 export const isDevelopment = config.server.nodeEnv !== 'production';
 export const isProduction = config.server.nodeEnv === 'production';
-};
