@@ -1,12 +1,12 @@
-import winston from 'winston';
+´import winston from 'winston';
 import path from 'path';
+import fs from 'fs';
 import { config } from '@config/index.js';
 
-// Ensure logs directory exists (only in development)
-import fs from 'fs';
 const isProduction = config.server.nodeEnv === 'production';
 const logsDir = path.dirname(config.logging.file);
 
+// Ensure logs directory exists (only in development)
 if (!isProduction && !fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
@@ -29,7 +29,7 @@ const jsonFormat = winston.format.combine(
 
 const transports: winston.transport[] = [];
 
-// Console transport (always enabled)
+// Console transport
 transports.push(
   new winston.transports.Console({
     format: isProduction
@@ -41,12 +41,12 @@ transports.push(
   })
 );
 
-// File transports (only in development)
+// File transports (only dev)
 if (!isProduction) {
   transports.push(
     new winston.transports.File({
       filename: config.logging.file,
-      maxsize: 10485760, // 10MB
+      maxsize: 10485760,
       maxFiles: 5,
       format: customFormat,
     })
@@ -69,16 +69,14 @@ const logger = winston.createLogger({
   transports,
   exceptionHandlers: [
     new winston.transports.Console({
-      format: isProduction ? jsonFormat : winston.format.combine(
-        winston.format.colorize(),
-        customFormat
-      ),
+      format: isProduction
+        ? jsonFormat
+        : winston.format.combine(
+            winston.format.colorize(),
+            customFormat
+          ),
     }),
   ],
 });
-
-export default logger;
-  );
-}
 
 export default logger;
