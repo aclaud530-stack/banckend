@@ -1,0 +1,43 @@
+node_modules/
+dist/
+build/
+logs/
+*.log
+*.log.*
+
+.env
+.env.local
+.env.*.local
+
+.DS_Store
+Thumbs.db
+
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+
+.cache/
+.parcel-cache/
+out/
+.next/
+.nuxt/
+dist/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Production
+build/
+out/
+
+# Misc
+.pnp
+.pnp.js
+
+# PM2
+pm2-home/
