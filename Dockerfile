@@ -1,60 +1,63 @@
-# Multi-stage build to optimize Docker image
-
+# =========================
 # Stage 1: Build
+# =========================
 FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies
-COPY package*.json pnpm-lock.yaml* ./
+# Instala pnpm
+RUN npm install -g pnpm
 
-RUN npm install -g pnpm && \
-    pnpm install --frozen-lockfile
+# Copia ficheiros de dependências
+COPY package.json pnpm-lock.yaml ./
 
-# Copy source code
-COPY tsconfig.json ./
-COPY src ./src
+# Instala TODAS as dependências (inclui dev para TypeScript)
+RUN pnpm install
 
-# Build TypeScript
-RUN pnpm build
+# Copia o resto do projeto
+COPY . .
 
+# Build do TypeScript
+RUN pnpm run build
+
+
+# =========================
 # Stage 2: Runtime
+# =========================
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Install dumb-init for better signal handling
+# Ferramentas básicas
 RUN apk add --no-cache dumb-init curl
 
-# Install only production dependencies
-COPY package*.json pnpm-lock.yaml* ./
+# Instala pnpm
+RUN npm install -g pnpm
 
-RUN npm install -g pnpm && \
-    pnpm install --frozen-lockfile --prod && \
-    pnpm cache clean
+# Copia dependências
+COPY package.json pnpm-lock.yaml ./
 
-# Copy built application from builder
+# Instala apenas produção
+RUN pnpm install --prod && pnpm store prune
+
+# Copia build gerado
 COPY --from=builder /app/dist ./dist
 
-# Create logs directory (for development, won't persist in production)
-RUN mkdir -p /app/logs && \
-    chmod -R 755 /app/logs
-
-# Create non-root user for security
+# Cria user seguro
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
 USER nodejs
 
-# Expose port (will be overridden by Railway PORT env var)
+# Porta padrão (Railway vai sobrescrever com PORT env)
 EXPOSE 8080
 
-# Health check using curl (Railway compatible)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8080}/health || exit 1
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
 
-# Use dumb-init for better process management
+# Melhor gestão de processos
 ENTRYPOINT ["dumb-init", "--"]
 
-# Start application
+# Start da aplicação
 CMD ["node", "dist/server.js"]
