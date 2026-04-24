@@ -373,4 +373,49 @@ MIT
 
 ---
 
+# Fixes manuais necessários (3 arquivos)
+
+## 1. src/server.ts — WebSocketServer
+
+PROCURA:
+  import WebSocket from 'ws'
+  new WebSocket.Server(...)
+
+SUBSTITUI POR:
+  import { WebSocketServer } from 'ws'
+  new WebSocketServer(...)
+
+---
+
+## 2. src/utils/redis.ts — URL do Redis
+
+PROCURA:
+  createClient({ host: '...', port: 6379 })
+
+SUBSTITUI POR:
+  createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' })
+
+---
+
+## 3. src/websocket/manager.ts — MapIterator sem .map()
+
+PROCURA:
+  subscriptions.values().map(s => ...)
+
+SUBSTITUI POR:
+  Array.from(subscriptions.values()).map(s => ...)
+
+---
+
+## 4. Qualquer import de @types/ com .js
+
+PROCURA (em qualquer arquivo):
+  from '@types/errors.js'
+  from '@types/schemas.js'
+
+SUBSTITUI POR:
+  from '../types/errors.js'
+  from '../types/schemas.js'
+  (ajusta o caminho relativo conforme o arquivo)
+
 **Desenvolvido com ❤️ para trading seguro e escalável**
