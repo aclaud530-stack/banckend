@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { config } from '@config/index.js';
 import logger from '@utils/logger.js';
-import { AuthenticationError } from '@types/errors.js';
+import { AuthenticationError } from '../types/errors.js';
 
 interface PKCEPair {
   codeVerifier: string;
@@ -24,9 +24,6 @@ interface UserSession {
 }
 
 export class AuthService {
-  /**
-   * Generate PKCE code verifier and challenge
-   */
   static generatePKCE(): PKCEPair {
     const codeVerifier = Array.from(crypto.getRandomValues(new Uint8Array(64)))
       .map((v) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[v % 66])
@@ -42,16 +39,10 @@ export class AuthService {
     return { codeVerifier, codeChallenge };
   }
 
-  /**
-   * Generate random state for CSRF protection
-   */
   static generateState(): string {
     return crypto.randomBytes(16).toString('hex');
   }
 
-  /**
-   * Build authorization URL for login
-   */
   static buildAuthorizationUrl(options: {
     prompt?: 'login' | 'registration';
     sidc?: string;
@@ -62,13 +53,12 @@ export class AuthService {
     const pkce = this.generatePKCE();
     const state = this.generateState();
 
-    // Store in-memory (in production, use Redis or session store)
     const sessionKey = `pkce_${state}`;
     global.authSessions = global.authSessions || {};
     global.authSessions[sessionKey] = {
       codeVerifier: pkce.codeVerifier,
       state,
-      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+      expiresAt: Date.now() + 10 * 60 * 1000,
     };
 
     const params = new URLSearchParams({
@@ -89,12 +79,8 @@ export class AuthService {
     return `${config.deriv.authBaseUrl}/auth?${params.toString()}`;
   }
 
-  /**
-   * Exchange authorization code for access token
-   */
   static async exchangeCodeForToken(code: string, state: string): Promise<TokenResponse> {
     try {
-      // Verify state and retrieve stored PKCE
       const sessionKey = `pkce_${state}`;
       global.authSessions = global.authSessions || {};
       const session = global.authSessions[sessionKey];
@@ -120,13 +106,10 @@ export class AuthService {
           redirect_uri: config.deriv.redirectUri,
         }),
         {
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         }
       );
 
-      // Clean up session
       delete global.authSessions[sessionKey];
 
       const { access_token, expires_in, token_type } = tokenResponse.data;
@@ -154,32 +137,17 @@ export class AuthService {
     }
   }
 
-  /**
-   * Create user session
-   */
   static createSession(accessToken: string, expiresIn: number): UserSession {
     const userId = uuidv4();
     const expiresAt = Date.now() + expiresIn * 1000;
-
     logger.info('User session created', { userId, expiresAt });
-
-    return {
-      accessToken,
-      expiresAt,
-      userId,
-    };
+    return { accessToken, expiresAt, userId };
   }
 
-  /**
-   * Verify token expiration
-   */
   static isTokenExpired(session: UserSession): boolean {
     return Date.now() > session.expiresAt;
   }
 
-  /**
-   * Validate bearer token format
-   */
   static extractBearerToken(authHeader?: string): string {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new AuthenticationError('Missing or invalid authorization header');
@@ -188,7 +156,6 @@ export class AuthService {
   }
 }
 
-// Global type augmentation for session storage
 declare global {
   var authSessions: Record<string, {
     codeVerifier: string;
