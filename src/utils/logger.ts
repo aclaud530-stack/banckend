@@ -1,4 +1,4 @@
-´import winston from 'winston';
+import winston from 'winston';
 import path from 'path';
 import fs from 'fs';
 import { config } from '@config/index.js';
@@ -6,7 +6,7 @@ import { config } from '@config/index.js';
 const isProduction = config.server.nodeEnv === 'production';
 const logsDir = path.dirname(config.logging.file);
 
-// Ensure logs directory exists (only in development)
+// Garantir que a pasta de logs existe (apenas em dev)
 if (!isProduction && !fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
@@ -29,7 +29,7 @@ const jsonFormat = winston.format.combine(
 
 const transports: winston.transport[] = [];
 
-// Console transport
+// Console
 transports.push(
   new winston.transports.Console({
     format: isProduction
@@ -41,7 +41,7 @@ transports.push(
   })
 );
 
-// File transports (only dev)
+// Arquivos (apenas dev)
 if (!isProduction) {
   transports.push(
     new winston.transports.File({
