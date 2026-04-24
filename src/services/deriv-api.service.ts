@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { config } from '@config/index.js';
 import logger from '@utils/logger.js';
-import { DerivAPIError } from '@types/errors.js';
+import { DerivAPIError } from '../types/errors.js';
 
 export class DerivAPIService {
   private apiClient: AxiosInstance;
@@ -17,7 +17,6 @@ export class DerivAPIService {
         'Deriv-App-ID': config.deriv.appId,
       },
     });
-
     this.setupInterceptors();
   }
 
@@ -29,14 +28,7 @@ export class DerivAPIService {
           const message = error.response?.data?.error?.message || error.message;
           const code = error.response?.data?.error?.code || 'UNKNOWN_ERROR';
           const statusCode = error.response?.status || 500;
-
-          logger.error('Deriv API error', {
-            message,
-            code,
-            statusCode,
-            url: error.config?.url,
-          });
-
+          logger.error('Deriv API error', { message, code, statusCode, url: error.config?.url });
           throw new DerivAPIError(message, statusCode, code);
         }
         throw error;
@@ -44,9 +36,6 @@ export class DerivAPIService {
     );
   }
 
-  /**
-   * Get all Options trading accounts
-   */
   async getAccounts() {
     try {
       const response = await this.apiClient.get('/trading/v1/options/accounts');
@@ -57,9 +46,6 @@ export class DerivAPIService {
     }
   }
 
-  /**
-   * Create a new Options trading account
-   */
   async createAccount(options: {
     currency: 'USD';
     group: 'row';
@@ -78,9 +64,6 @@ export class DerivAPIService {
     }
   }
 
-  /**
-   * Reset demo account balance
-   */
   async resetDemoBalance(accountId: string) {
     try {
       const response = await this.apiClient.post(
@@ -93,9 +76,6 @@ export class DerivAPIService {
     }
   }
 
-  /**
-   * Get OTP for WebSocket authentication
-   */
   async getOTP(accountId: string) {
     try {
       const response = await this.apiClient.post(
@@ -109,9 +89,6 @@ export class DerivAPIService {
     }
   }
 
-  /**
-   * Health check
-   */
   async healthCheck() {
     try {
       const response = await this.apiClient.get('/v1/health');
@@ -122,9 +99,6 @@ export class DerivAPIService {
     }
   }
 
-  /**
-   * Update API access token
-   */
   updateAccessToken(newToken: string) {
     this.accessToken = newToken;
     this.apiClient.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
