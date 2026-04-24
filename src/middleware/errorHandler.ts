@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import logger from '@utils/logger.js';
 import { config } from '@config/index.js';
-import { AppError, ValidationError } from '@types/errors.js';
+import { AppError, ValidationError } from '../types/errors.js';
 
 // Async route wrapper to catch errors
 export const asyncHandler = (
@@ -22,7 +22,8 @@ export const validate = (schema: any) => {
         params: req.params,
         query: req.query,
       });
-      req.validated = validated;
+      // Guarda no objeto req de forma segura sem estender o tipo
+      (req as any).validated = validated;
       next();
     } catch (error) {
       if (error instanceof ZodError) {
@@ -47,9 +48,8 @@ export const errorHandler = (
   err: Error | AppError,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) => {
-  // Log the error with full context
   logger.error('Error occurred', {
     name: err.name,
     message: err.message,
@@ -59,7 +59,6 @@ export const errorHandler = (
     stack: err.stack,
   });
 
-  // Handle validation errors
   if (err instanceof ValidationError) {
     return res.status(err.statusCode).json({
       success: false,
@@ -71,7 +70,6 @@ export const errorHandler = (
     });
   }
 
-  // Handle operational errors
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
       success: false,
@@ -82,7 +80,6 @@ export const errorHandler = (
     });
   }
 
-  // Handle Zod validation errors (direct)
   if (err instanceof ZodError) {
     return res.status(400).json({
       success: false,
@@ -97,13 +94,10 @@ export const errorHandler = (
     });
   }
 
-  // Handle unknown errors - don't expose stack traces in production
-  const isProduction = config.server.nodeEnv === 'production';
-  
   res.status(500).json({
     success: false,
     error: {
-      message: isProduction ? 'Internal server error' : err.message,
+      message: config.server.isProduction ? 'Internal server error' : err.message,
       code: 'INTERNAL_ERROR',
       ...(config.server.isDevelopment && { stack: err.stack }),
     },
@@ -114,7 +108,7 @@ export const errorHandler = (
 export const notFoundHandler = (
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ) => {
   res.status(404).json({
     success: false,
