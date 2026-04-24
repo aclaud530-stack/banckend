@@ -4,13 +4,13 @@ import { DerivAPIService } from '@services/deriv-api.service.js';
 import { authLimiter } from '@middleware/security.js';
 import logger from '@utils/logger.js';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * GET /api/auth/login
  * Redirect user to Deriv authorization endpoint
  */
-router.get('/login', authLimiter, (req: Request, res: Response) => {
+router.get('/login', authLimiter, (req: Request, res: Response, next: NextFunction) => {
   try {
     const prompt = (req.query.prompt as 'login' | 'registration') || 'login';
     const sidc = req.query.sidc as string | undefined;
@@ -61,13 +61,11 @@ router.get('/callback', authLimiter, async (req: Request, res: Response, next: N
       });
     }
 
-    // Exchange code for token
     const token = await AuthService.exchangeCodeForToken(code, state);
     const session = AuthService.createSession(token.accessToken, token.expiresIn);
 
     logger.info('User authenticated successfully', { userId: session.userId });
 
-    // Return token to client
     res.json({
       success: true,
       data: {
@@ -111,9 +109,8 @@ router.get('/signup', authLimiter, (req: Request, res: Response, next: NextFunct
 
 /**
  * POST /api/auth/refresh-token
- * Refresh access token (for future implementation with refresh tokens)
  */
-router.post('/refresh-token', authLimiter, (req: Request, res: Response) => {
+router.post('/refresh-token', authLimiter, (_req: Request, res: Response) => {
   res.status(501).json({
     error: 'Token refresh not yet implemented',
     message: 'Please re-authenticate using the login endpoint',
@@ -122,9 +119,8 @@ router.post('/refresh-token', authLimiter, (req: Request, res: Response) => {
 
 /**
  * POST /api/auth/logout
- * Logout user (invalidate session)
  */
-router.post('/logout', (req: Request, res: Response) => {
+router.post('/logout', (req: Request, res: Response, next: NextFunction) => {
   try {
     logger.info('User logged out');
     res.json({
@@ -133,13 +129,12 @@ router.post('/logout', (req: Request, res: Response) => {
     });
   } catch (error) {
     logger.error('Logout failed', { error });
-    throw error;
+    next(error);
   }
 });
 
 /**
  * GET /api/auth/validate
- * Validate current access token
  */
 router.get('/validate', async (req: Request, res: Response, next: NextFunction) => {
   try {
