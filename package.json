@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "start": "node dist/server.js",
     "start:pm2": "pm2 start ecosystem.config.js",
     "stop:pm2": "pm2 stop all",
@@ -14,13 +14,7 @@
     "lint": "eslint src --ext .ts",
     "format": "prettier --write 'src/**/*.ts'"
   },
-  "keywords": [
-    "deriv",
-    "trading",
-    "api",
-    "websocket",
-    "oauth2"
-  ],
+  "keywords": ["deriv", "trading", "api", "websocket", "oauth2"],
   "author": "",
   "license": "MIT",
   "dependencies": {
@@ -42,6 +36,8 @@
     "@types/node": "^20.10.6",
     "@types/ws": "^8.5.10",
     "@types/uuid": "^9.0.7",
+    "@types/cors": "^2.8.17",
+    "tsc-alias": "^1.8.8",
     "typescript": "^5.3.3",
     "tsx": "^4.7.0",
     "eslint": "^8.56.0",
