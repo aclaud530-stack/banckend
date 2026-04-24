@@ -9,12 +9,9 @@ let isRedisAvailable = false;
 export const initRedis = async () => {
   try {
     redisClient = createClient({
-      host: config.redis.host,
-      port: config.redis.port,
-      db: config.redis.db,
-      password: config.redis.password,
+      url: config.redis.url,
       socket: {
-        reconnectStrategy: (retries) => Math.min(retries * 50, 500),
+        reconnectStrategy: (retries: number) => Math.min(retries * 50, 500),
       },
     });
 
@@ -39,7 +36,6 @@ export const initRedis = async () => {
 };
 
 export const redisGet = async (key: string): Promise<string | null> => {
-  // Try Redis first
   if (isRedisAvailable && redisClient) {
     try {
       return await redisClient.get(key);
@@ -47,8 +43,6 @@ export const redisGet = async (key: string): Promise<string | null> => {
       logger.error('Redis get error, falling back to memory', { error });
     }
   }
-
-  // Fallback to memory store
   const memStore = getMemoryStore();
   return memStore.get(key);
 };
@@ -58,7 +52,6 @@ export const redisSet = async (
   value: string,
   ttl?: number
 ): Promise<void> => {
-  // Try Redis first
   if (isRedisAvailable && redisClient) {
     try {
       if (ttl) {
@@ -71,8 +64,6 @@ export const redisSet = async (
       logger.error('Redis set error, falling back to memory', { error });
     }
   }
-
-  // Fallback to memory store
   const memStore = getMemoryStore();
   memStore.set(key, value, ttl);
 };
@@ -86,7 +77,6 @@ export const redisDel = async (key: string): Promise<void> => {
       logger.error('Redis del error, falling back to memory', { error });
     }
   }
-
   const memStore = getMemoryStore();
   memStore.delete(key);
 };
