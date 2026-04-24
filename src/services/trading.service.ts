@@ -1,10 +1,11 @@
 import { WebSocketManager } from '@websocket/manager.js';
 import { config } from '@config/index.js';
 import logger from '@utils/logger.js';
-import { ProposalRequest, BuyRequest, SellRequest, ContractUpdate } from '@types/schemas.js';
+import { ProposalRequest, BuyRequest, SellRequest, ContractUpdate } from '../types/schemas.js';
 
 export class TradingService {
-  private wsManager: WebSocketManager;
+  // público para permitir acesso direto em trading.routes.ts
+  public wsManager: WebSocketManager;
 
   constructor(otpUrl: string) {
     this.wsManager = new WebSocketManager({
@@ -16,9 +17,6 @@ export class TradingService {
     });
   }
 
-  /**
-   * Get active symbols available for trading
-   */
   async getActiveSymbols(detailed = false) {
     try {
       const response = await this.wsManager.send({
@@ -31,14 +29,9 @@ export class TradingService {
     }
   }
 
-  /**
-   * Get available contract types for a symbol
-   */
   async getContractsFor(symbol: string) {
     try {
-      const response = await this.wsManager.send({
-        contracts_for: symbol,
-      });
+      const response = await this.wsManager.send({ contracts_for: symbol });
       return response.contracts_for;
     } catch (error) {
       logger.error('Failed to get contracts for symbol', { error, symbol });
@@ -46,14 +39,9 @@ export class TradingService {
     }
   }
 
-  /**
-   * Get contract list
-   */
   async getContractsList() {
     try {
-      const response = await this.wsManager.send({
-        contracts_list: 1,
-      });
+      const response = await this.wsManager.send({ contracts_list: 1 });
       return response.contracts_list;
     } catch (error) {
       logger.error('Failed to get contracts list', { error });
@@ -61,22 +49,13 @@ export class TradingService {
     }
   }
 
-  /**
-   * Subscribe to real-time tick data
-   */
-  subscribeTicks(
-    symbols: string | string[],
-    onTick: (tick: any) => void
-  ): string {
+  subscribeTicks(symbols: string | string[], onTick: (tick: any) => void): string {
     const symbolArray = Array.isArray(symbols) ? symbols : [symbols];
     return this.wsManager.subscribe('ticks', {
       ticks: symbolArray.length === 1 ? symbolArray[0] : symbolArray,
     }, onTick);
   }
 
-  /**
-   * Get historical tick data
-   */
   async getTicksHistory(symbol: string, options: {
     count?: number;
     start?: number;
@@ -100,15 +79,9 @@ export class TradingService {
     }
   }
 
-  /**
-   * Get account balance
-   */
   async getBalance() {
     try {
-      const response = await this.wsManager.send({
-        balance: 1,
-        subscribe: 1,
-      });
+      const response = await this.wsManager.send({ balance: 1, subscribe: 1 });
       return response.balance;
     } catch (error) {
       logger.error('Failed to get balance', { error });
@@ -116,23 +89,13 @@ export class TradingService {
     }
   }
 
-  /**
-   * Subscribe to balance updates
-   */
   subscribeBalance(onBalance: (balance: any) => void): string {
-    return this.wsManager.subscribe('balance', {
-      balance: 1,
-    }, onBalance);
+    return this.wsManager.subscribe('balance', { balance: 1 }, onBalance);
   }
 
-  /**
-   * Get open contracts (portfolio)
-   */
   async getPortfolio() {
     try {
-      const response = await this.wsManager.send({
-        portfolio: 1,
-      });
+      const response = await this.wsManager.send({ portfolio: 1 });
       return response.portfolio;
     } catch (error) {
       logger.error('Failed to get portfolio', { error });
@@ -140,14 +103,7 @@ export class TradingService {
     }
   }
 
-  /**
-   * Get profit table (completed trades)
-   */
-  async getProfitTable(options: {
-    limit?: number;
-    offset?: number;
-    description?: boolean;
-  } = {}) {
+  async getProfitTable(options: { limit?: number; offset?: number; description?: boolean } = {}) {
     try {
       const response = await this.wsManager.send({
         profit_table: 1,
@@ -162,14 +118,7 @@ export class TradingService {
     }
   }
 
-  /**
-   * Get account statement
-   */
-  async getStatement(options: {
-    limit?: number;
-    offset?: number;
-    description?: boolean;
-  } = {}) {
+  async getStatement(options: { limit?: number; offset?: number; description?: boolean } = {}) {
     try {
       const response = await this.wsManager.send({
         statement: 1,
@@ -184,18 +133,10 @@ export class TradingService {
     }
   }
 
-  /**
-   * Subscribe to transaction updates
-   */
   subscribeTransactions(onTransaction: (transaction: any) => void): string {
-    return this.wsManager.subscribe('transaction', {
-      transaction: 1,
-    }, onTransaction);
+    return this.wsManager.subscribe('transaction', { transaction: 1 }, onTransaction);
   }
 
-  /**
-   * Get price proposal for a contract
-   */
   async getProposal(request: ProposalRequest) {
     try {
       const response = await this.wsManager.send({
@@ -226,13 +167,7 @@ export class TradingService {
     }
   }
 
-  /**
-   * Subscribe to proposal updates
-   */
-  subscribeProposal(
-    request: ProposalRequest,
-    onProposal: (proposal: any) => void
-  ): string {
+  subscribeProposal(request: ProposalRequest, onProposal: (proposal: any) => void): string {
     return this.wsManager.subscribe('proposal', {
       proposal: 1,
       amount: request.amount,
@@ -246,9 +181,6 @@ export class TradingService {
     }, onProposal);
   }
 
-  /**
-   * Buy a contract
-   */
   async buy(request: BuyRequest) {
     try {
       const response = await this.wsManager.send({
@@ -271,9 +203,6 @@ export class TradingService {
     }
   }
 
-  /**
-   * Sell a contract
-   */
   async sell(request: SellRequest) {
     try {
       const response = await this.wsManager.send({
@@ -293,16 +222,12 @@ export class TradingService {
     }
   }
 
-  /**
-   * Get open contract status
-   */
   async getOpenContract(contractId: number) {
     try {
       const response = await this.wsManager.send({
         proposal_open_contract: 1,
         contract_id: contractId,
       });
-
       return response.proposal_open_contract;
     } catch (error) {
       logger.error('Failed to get open contract', { error, contractId });
@@ -310,22 +235,13 @@ export class TradingService {
     }
   }
 
-  /**
-   * Subscribe to open contract updates
-   */
-  subscribeOpenContract(
-    contractId: number,
-    onUpdate: (contract: any) => void
-  ): string {
+  subscribeOpenContract(contractId: number, onUpdate: (contract: any) => void): string {
     return this.wsManager.subscribe(`contract_${contractId}`, {
       proposal_open_contract: 1,
       contract_id: contractId,
     }, onUpdate);
   }
 
-  /**
-   * Update contract limit orders (stop loss, take profit)
-   */
   async updateContract(request: ContractUpdate) {
     try {
       const response = await this.wsManager.send({
@@ -336,7 +252,6 @@ export class TradingService {
           take_profit: request.limitOrder?.takeProfit,
         },
       });
-
       return response.contract_update;
     } catch (error) {
       logger.error('Failed to update contract', { error, contractId: request.contractId });
@@ -344,15 +259,9 @@ export class TradingService {
     }
   }
 
-  /**
-   * Cancel a contract
-   */
   async cancelContract(contractId: number) {
     try {
-      const response = await this.wsManager.send({
-        cancel: contractId,
-      });
-
+      const response = await this.wsManager.send({ cancel: contractId });
       return response.cancel;
     } catch (error) {
       logger.error('Failed to cancel contract', { error, contractId });
@@ -360,23 +269,14 @@ export class TradingService {
     }
   }
 
-  /**
-   * Get WebSocket status
-   */
   getStatus() {
     return this.wsManager.getStatus();
   }
 
-  /**
-   * Disconnect WebSocket
-   */
   disconnect() {
     this.wsManager.disconnect();
   }
 
-  /**
-   * Cleanup expired subscriptions
-   */
   cleanupExpired() {
     this.wsManager.cleanupExpired();
   }
