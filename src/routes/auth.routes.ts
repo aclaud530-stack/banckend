@@ -6,9 +6,10 @@ import logger from '@utils/logger.js';
 
 const router: Router = Router();
 
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://teu-frontend.vercel.app';
+
 /**
  * GET /api/auth/login
- * Redirect user to Deriv authorization endpoint
  */
 router.get('/login', authLimiter, (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -36,7 +37,6 @@ router.get('/login', authLimiter, (req: Request, res: Response, next: NextFuncti
 
 /**
  * GET /api/auth/callback
- * Handle OAuth2 callback from Deriv
  */
 router.get('/callback', authLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -46,19 +46,12 @@ router.get('/callback', authLimiter, async (req: Request, res: Response, next: N
 
     if (error) {
       logger.warn('OAuth callback error', { error });
-      return res.json({
-        success: false,
-        error: error,
-        errorDescription: req.query.error_description,
-      });
+      return res.redirect(`${FRONTEND_URL}/?error=${error}`);
     }
 
     if (!code || !state) {
       logger.warn('Missing authorization code or state');
-      return res.status(400).json({
-        success: false,
-        error: 'Missing authorization code or state',
-      });
+      return res.redirect(`${FRONTEND_URL}/?error=missing_params`);
     }
 
     const token = await AuthService.exchangeCodeForToken(code, state);
@@ -66,23 +59,17 @@ router.get('/callback', authLimiter, async (req: Request, res: Response, next: N
 
     logger.info('User authenticated successfully', { userId: session.userId });
 
-    res.json({
-      success: true,
-      data: {
-        accessToken: session.accessToken,
-        expiresIn: token.expiresIn,
-        userId: session.userId,
-      },
-    });
+    // Redireciona para o frontend com o token
+    return res.redirect(`${FRONTEND_URL}/dashboard?token=${session.accessToken}`);
+
   } catch (error) {
     logger.error('Callback handling failed', { error });
-    next(error);
+    return res.redirect(`${FRONTEND_URL}/?error=auth_failed`);
   }
 });
 
 /**
  * GET /api/auth/signup
- * Redirect user to Deriv signup endpoint
  */
 router.get('/signup', authLimiter, (req: Request, res: Response, next: NextFunction) => {
   try {
