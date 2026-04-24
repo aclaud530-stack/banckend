@@ -1,7 +1,7 @@
 import 'express-async-errors';
-import express from 'express';
+import express, { Application } from 'express';
 import http from 'http';
-import WebSocket from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import { config } from '@config/index.js';
 import logger from '@utils/logger.js';
 import { initRedis, closeRedis, isRedisConnected } from '@utils/redis.js';
@@ -23,28 +23,25 @@ import accountRoutes from '@routes/accounts.routes.js';
 import tradingRoutes from '@routes/trading.routes.js';
 
 // Initialize Express app
-const app = express();
+const app: Application = express();
 const server = http.createServer(app);
 
-// Initialize WebSocket server
-const wss = new WebSocket.Server({ server });
+// Initialize WebSocket server — usa WebSocketServer em vez de WebSocket.Server
+const wss = new WebSocketServer({ server });
 
 // WebSocket connection handling
-wss.on('connection', (ws, req) => {
+wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
   logger.info('WebSocket client connected', { ip: req.socket.remoteAddress });
 
-  // Heartbeat ping
   const pingInterval = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
       ws.ping();
     }
   }, config.websocket.heartbeatInterval);
 
-  ws.on('message', (message) => {
+  ws.on('message', (message: Buffer) => {
     try {
       const data = JSON.parse(message.toString());
-      // Handle WebSocket messages (e.g., proxy to Deriv or handle client requests)
-      // For now, echo back
       ws.send(JSON.stringify({ echo: data }));
     } catch (error) {
       logger.error('WebSocket message error', { error });
@@ -61,7 +58,7 @@ wss.on('connection', (ws, req) => {
     clearInterval(pingInterval);
   });
 
-  ws.on('error', (error) => {
+  ws.on('error', (error: Error) => {
     logger.error('WebSocket error', { error });
     clearInterval(pingInterval);
   });
@@ -84,7 +81,7 @@ app.use(apiLimiter);
 // ============================================
 // Health Check Endpoint
 // ============================================
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -116,12 +113,10 @@ app.use(errorHandler);
 // ============================================
 const startServer = async () => {
   try {
-    // Initialize Redis (non-blocking, will fallback to memory if unavailable)
     logger.info('Initializing data store...');
     await initRedis();
     logger.info(`Data store ready (Redis: ${isRedisConnected() ? 'connected' : 'unavailable'})`);
 
-    // Start HTTP server
     server.listen(config.server.port, config.server.host, () => {
       logger.info('Server started successfully', {
         host: config.server.host,
@@ -134,17 +129,16 @@ const startServer = async () => {
       if (config.server.isDevelopment) {
         console.log(`
 ╔════════════════════════════════════════════════════════════╗
-║         Deriv Trading Backend Server Started              ║
+║         Deriv Trading Backend Server Started               ║
 ║                                                            ║
-║  🚀 API Server:   http://${config.server.host}:${config.server.port}                     ║
-║  📚 Health:       http://${config.server.host}:${config.server.port}/health             ║
-║  🔐 Auth:         http://${config.server.host}:${config.server.port}/api/auth          ║
-║  💼 Accounts:     http://${config.server.host}:${config.server.port}/api/accounts       ║
-║  📈 Trading:      http://${config.server.host}:${config.server.port}/api/trading        ║
+║  🚀 API:      http://${config.server.host}:${config.server.port}                      ║
+║  📚 Health:   http://${config.server.host}:${config.server.port}/health               ║
+║  🔐 Auth:     http://${config.server.host}:${config.server.port}/api/auth             ║
+║  💼 Accounts: http://${config.server.host}:${config.server.port}/api/accounts         ║
+║  📈 Trading:  http://${config.server.host}:${config.server.port}/api/trading          ║
 ║                                                            ║
-║  Environment: ${config.server.nodeEnv.toUpperCase()}                                   ║
-║  Redis: ${isRedisConnected() ? 'CONNECTED' : 'MEMORY FALLBACK'}                           ║
-║  Node Version: ${process.version}                               ║
+║  Environment: ${config.server.nodeEnv.toUpperCase()}                                  ║
+║  Redis: ${isRedisConnected() ? 'CONNECTED        ' : 'MEMORY FALLBACK  '}             ║
 ╚════════════════════════════════════════════════════════════╝
         `);
       }
@@ -164,30 +158,25 @@ const startServer = async () => {
 const gracefulShutdown = async (signal: string) => {
   logger.info(`Received ${signal}, shutting down gracefully...`);
 
-  // Close WebSocket server first (stop accepting new connections)
   wss.close(() => {
     logger.info('WebSocket server closed');
   });
 
-  // Close HTTP server
   server.close(async () => {
     logger.info('HTTP server closed');
 
-    // Close Redis connection
     try {
       await closeRedis();
     } catch (error) {
       logger.error('Error closing Redis', { error });
     }
 
-    // Destroy memory store
     destroyMemoryStore();
     logger.info('Memory store cleaned up');
 
     process.exit(0);
   });
 
-  // Force shutdown after 30 seconds
   setTimeout(() => {
     logger.error('Forced shutdown due to timeout');
     process.exit(1);
@@ -212,7 +201,6 @@ process.on('unhandledRejection', (reason, promise) => {
   });
 });
 
-// Start the server
 startServer();
 
 export default app;
