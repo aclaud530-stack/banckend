@@ -48,9 +48,6 @@ export class WebSocketManager extends EventEmitter {
     }
   }
 
-  /**
-   * Connect to WebSocket server
-   */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
@@ -58,7 +55,6 @@ export class WebSocketManager extends EventEmitter {
 
         this.ws = new WebSocket(this.url);
 
-        // Connection timeout
         this.connectionTimeout = setTimeout(() => {
           if (!this.isConnected) {
             this.ws?.close();
@@ -78,11 +74,17 @@ export class WebSocketManager extends EventEmitter {
         };
 
         this.ws.onmessage = (event) => {
-          this.handleMessage(event.data);
+          // Converte qualquer tipo de data para string
+          const raw = typeof event.data === 'string'
+            ? event.data
+            : event.data instanceof Buffer
+              ? event.data.toString()
+              : Buffer.from(event.data as ArrayBuffer).toString();
+          this.handleMessage(raw);
         };
 
         this.ws.onerror = (event) => {
-          logger.error('WebSocket error', { message: event.message });
+          logger.error('WebSocket error', { message: (event as any).message });
           this.emit('error', event);
         };
 
@@ -100,20 +102,15 @@ export class WebSocketManager extends EventEmitter {
     });
   }
 
-  /**
-   * Handle incoming WebSocket messages
-   */
   private handleMessage(data: string) {
     try {
       const message = JSON.parse(data);
 
-      // Handle ping/pong
       if (message.msg_type === 'ping') {
         this.send({ pong: 1 });
         return;
       }
 
-      // Match with pending requests
       if (message.req_id) {
         const pending = this.pendingRequests.get(String(message.req_id));
         if (pending) {
@@ -123,7 +120,6 @@ export class WebSocketManager extends EventEmitter {
         }
       }
 
-      // Handle subscription updates
       if (message.subscription?.id) {
         const subscription = this.subscriptions.get(message.subscription.id);
         if (subscription) {
@@ -137,9 +133,6 @@ export class WebSocketManager extends EventEmitter {
     }
   }
 
-  /**
-   * Send message to WebSocket
-   */
   send(payload: any, timeout = 30000): Promise<any> {
     return new Promise((resolve, reject) => {
       const message = {
@@ -156,7 +149,6 @@ export class WebSocketManager extends EventEmitter {
       try {
         this.ws?.send(JSON.stringify(message));
 
-        // Set timeout for response
         if (payload.req_id) {
           const timeoutId = setTimeout(() => {
             this.pendingRequests.delete(String(message.req_id));
@@ -164,7 +156,7 @@ export class WebSocketManager extends EventEmitter {
           }, timeout);
 
           this.pendingRequests.set(String(message.req_id), {
-            resolve: (data) => {
+            resolve: (data: any) => {
               clearTimeout(timeoutId);
               resolve(data);
             },
@@ -180,9 +172,6 @@ export class WebSocketManager extends EventEmitter {
     });
   }
 
-  /**
-   * Subscribe to WebSocket stream
-   */
   subscribe(
     type: string,
     payload: any,
@@ -194,7 +183,7 @@ export class WebSocketManager extends EventEmitter {
       id: subscriptionId,
       type,
       handler,
-      expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000,
     };
 
     this.subscriptions.set(subscriptionId, subscription);
@@ -202,7 +191,7 @@ export class WebSocketManager extends EventEmitter {
     this.send({
       ...payload,
       subscribe: 1,
-    }).catch((error) => {
+    }).catch((error: any) => {
       logger.error('Subscription failed', { error, type });
       this.subscriptions.delete(subscriptionId);
     });
@@ -211,9 +200,6 @@ export class WebSocketManager extends EventEmitter {
     return subscriptionId;
   }
 
-  /**
-   * Unsubscribe from WebSocket stream
-   */
   async unsubscribe(subscriptionId: string): Promise<void> {
     const subscription = this.subscriptions.get(subscriptionId);
     if (!subscription) {
@@ -222,9 +208,7 @@ export class WebSocketManager extends EventEmitter {
     }
 
     try {
-      await this.send({
-        forget: subscriptionId,
-      });
+      await this.send({ forget: subscriptionId });
       this.subscriptions.delete(subscriptionId);
       logger.info('WebSocket subscription removed', { subscriptionId });
     } catch (error) {
@@ -233,15 +217,15 @@ export class WebSocketManager extends EventEmitter {
     }
   }
 
-  /**
-   * Unsubscribe from all subscriptions of a type
-   */
   async unsubscribeAll(type?: string): Promise<void> {
     try {
-      const types = type ? [type] : Array.from(new Set(this.subscriptions.values().map(s => s.type)));
-      await this.send({
-        forget_all: types,
-      });
+      // Corrigido: Array.from() resolve o erro de MapIterator sem .map()
+      const allSubs = Array.from(this.subscriptions.values());
+      const types = type
+        ? [type]
+        : Array.from(new Set(allSubs.map((s: WebSocketSubscription) => s.type)));
+
+      await this.send({ forget_all: types });
       this.subscriptions.clear();
       logger.info('All WebSocket subscriptions removed', { types });
     } catch (error) {
@@ -250,13 +234,10 @@ export class WebSocketManager extends EventEmitter {
     }
   }
 
-  /**
-   * Start heartbeat to keep connection alive
-   */
   private startHeartbeat() {
     this.heartbeatInterval = setInterval(() => {
       if (this.isConnected) {
-        this.send({ ping: 1 }).catch((error) => {
+        this.send({ ping: 1 }).catch((error: any) => {
           logger.warn('Heartbeat failed', { error });
         });
 
@@ -270,9 +251,6 @@ export class WebSocketManager extends EventEmitter {
     logger.debug('Heartbeat started', { interval: this.options.heartbeatInterval });
   }
 
-  /**
-   * Stop heartbeat
-   */
   private stopHeartbeat() {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
@@ -284,9 +262,6 @@ export class WebSocketManager extends EventEmitter {
     }
   }
 
-  /**
-   * Attempt to reconnect with exponential backoff
-   */
   private attemptReconnect() {
     if (this.reconnectAttempts >= this.options.reconnectMaxAttempts) {
       logger.error('Max reconnection attempts reached', {
@@ -305,15 +280,12 @@ export class WebSocketManager extends EventEmitter {
     });
 
     setTimeout(() => {
-      this.connect().catch((error) => {
+      this.connect().catch((error: any) => {
         logger.error('Reconnection failed', { error });
       });
     }, delay);
   }
 
-  /**
-   * Manual reconnect
-   */
   reconnect() {
     if (this.ws) {
       this.ws.close();
@@ -322,9 +294,6 @@ export class WebSocketManager extends EventEmitter {
     this.connect();
   }
 
-  /**
-   * Flush queued messages after connection
-   */
   private flushMessageQueue() {
     while (this.messageQueue.length > 0 && this.isConnected) {
       const message = this.messageQueue.shift();
@@ -339,9 +308,6 @@ export class WebSocketManager extends EventEmitter {
     }
   }
 
-  /**
-   * Disconnect WebSocket
-   */
   disconnect() {
     if (this.ws) {
       this.ws.close();
@@ -352,9 +318,6 @@ export class WebSocketManager extends EventEmitter {
     logger.info('WebSocket disconnected');
   }
 
-  /**
-   * Get connection status
-   */
   getStatus() {
     return {
       isConnected: this.isConnected,
@@ -365,9 +328,6 @@ export class WebSocketManager extends EventEmitter {
     };
   }
 
-  /**
-   * Clean up expired subscriptions
-   */
   cleanupExpired() {
     const now = Date.now();
     const expired = Array.from(this.subscriptions.entries())
