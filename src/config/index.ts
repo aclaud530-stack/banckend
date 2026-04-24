@@ -8,8 +8,9 @@ const configSchema = z.object({
     port: z.number().default(3001),
     host: z.string().default('0.0.0.0'),
     nodeEnv: z.string().default('development'),
+    isDevelopment: z.boolean().default(true),
+    isProduction: z.boolean().default(false),
   }),
-
   deriv: z.object({
     apiBaseUrl: z.string().url().default('https://api.derivws.com'),
     wsPublicUrl: z.string().url().default('wss://api.derivws.com/trading/v1/options/ws/public'),
@@ -20,47 +21,45 @@ const configSchema = z.object({
     redirectUri: z.string().url().default('http://localhost:3001/api/auth/callback'),
     appId: z.string().min(1, 'DERIV_APP_ID is required'),
   }),
-
   frontend: z.object({
     url: z.string().url().default('http://localhost:3000'),
     prodUrl: z.string().url().default('https://yourdomain.com'),
   }),
-
   redis: z.object({
-    host: z.string().default('localhost'),
-    port: z.number().default(6379),
+    url: z.string().default('redis://localhost:6379'),
     db: z.number().default(0),
     password: z.string().optional(),
   }),
-
   security: z.object({
     jwtSecret: z.string().min(1, 'JWT_SECRET is required'),
-    corsOrigin: z.string().url().default('http://localhost:3000'),
+    corsOrigin: z.string().default('http://localhost:3000'),
   }),
-
   logging: z.object({
     level: z.string().default('info'),
     file: z.string().default('logs/app.log'),
   }),
-
   websocket: z.object({
     heartbeatInterval: z.number().default(30000),
     maxSubscriptions: z.number().default(100),
     reconnectMaxAttempts: z.number().default(5),
     reconnectDelay: z.number().default(1000),
   }),
-
   rateLimit: z.object({
     windowMs: z.number().default(900000),
     maxRequests: z.number().default(100),
   }),
 });
 
+const nodeEnv = process.env.NODE_ENV || 'development';
+const isDev = nodeEnv !== 'production';
+
 const envConfig = {
   server: {
     port: parseInt(process.env.PORT || '3001', 10),
     host: process.env.HOST || '0.0.0.0',
-    nodeEnv: process.env.NODE_ENV || 'development',
+    nodeEnv,
+    isDevelopment: isDev,
+    isProduction: !isDev,
   },
   deriv: {
     apiBaseUrl: process.env.DERIV_API_BASE_URL || 'https://api.derivws.com',
@@ -77,8 +76,8 @@ const envConfig = {
     prodUrl: process.env.FRONTEND_PROD_URL || 'https://yourdomain.com',
   },
   redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    // Usa REDIS_URL diretamente (Railway injeta isso automaticamente)
+    url: process.env.REDIS_URL || `redis://${process.env.REDIS_HOST || 'localhost'}:${process.env.REDIS_PORT || '6379'}`,
     db: parseInt(process.env.REDIS_DB || '0', 10),
     password: process.env.REDIS_PASSWORD,
   },
@@ -104,5 +103,6 @@ const envConfig = {
 
 export const config = configSchema.parse(envConfig);
 
-export const isDevelopment = config.server.nodeEnv !== 'production';
-export const isProduction = config.server.nodeEnv === 'production';
+// Mantém exports diretos para compatibilidade
+export const isDevelopment = config.server.isDevelopment;
+export const isProduction = config.server.isProduction;
