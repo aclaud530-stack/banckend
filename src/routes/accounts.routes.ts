@@ -1,15 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { DerivAPIService } from '@services/deriv-api.service.js';
 import { AuthService } from '@services/auth.service.js';
-import { AccountCreationSchema } from '@types/schemas.js';
+import { AccountCreationSchema } from '../types/schemas.js';
 import { apiLimiter } from '@middleware/security.js';
 import logger from '@utils/logger.js';
 
-const router = Router();
+const router: Router = Router();
 
-/**
- * Middleware to extract and validate bearer token
- */
 const requireAuth = (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
@@ -28,15 +25,10 @@ const requireAuth = (req: Request, res: Response, next: NextFunction) => {
 router.use(requireAuth);
 router.use(apiLimiter);
 
-/**
- * GET /api/accounts
- * Get all trading accounts for the authenticated user
- */
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = (req as any).token;
     const derivAPI = new DerivAPIService(token);
-
     const accountsData = await derivAPI.getAccounts();
 
     logger.info('Accounts retrieved', { count: accountsData.data?.length });
@@ -54,18 +46,12 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-/**
- * POST /api/accounts
- * Create a new trading account
- */
 router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = (req as any).token;
-
-    // Validate request body
     const validated = AccountCreationSchema.parse(req.body);
-
     const derivAPI = new DerivAPIService(token);
+
     const accountData = await derivAPI.createAccount({
       currency: validated.currency,
       group: validated.group,
@@ -90,15 +76,10 @@ router.post('/', async (req: Request, res: Response, next: NextFunction) => {
   }
 });
 
-/**
- * POST /api/accounts/:accountId/reset-demo-balance
- * Reset demo account balance
- */
 router.post('/:accountId/reset-demo-balance', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = (req as any).token;
     const accountId = req.params.accountId;
-
     const derivAPI = new DerivAPIService(token);
     const result = await derivAPI.resetDemoBalance(accountId);
 
@@ -106,10 +87,7 @@ router.post('/:accountId/reset-demo-balance', async (req: Request, res: Response
 
     res.json({
       success: true,
-      data: {
-        account: result.data,
-        meta: result.meta,
-      },
+      data: { account: result.data, meta: result.meta },
     });
   } catch (error) {
     logger.error('Failed to reset demo balance', { error, accountId: req.params.accountId });
@@ -117,15 +95,10 @@ router.post('/:accountId/reset-demo-balance', async (req: Request, res: Response
   }
 });
 
-/**
- * POST /api/accounts/:accountId/otp
- * Get OTP for WebSocket authentication
- */
 router.post('/:accountId/otp', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = (req as any).token;
     const accountId = req.params.accountId;
-
     const derivAPI = new DerivAPIService(token);
     const otpData = await derivAPI.getOTP(accountId);
 
@@ -133,10 +106,7 @@ router.post('/:accountId/otp', async (req: Request, res: Response, next: NextFun
 
     res.json({
       success: true,
-      data: {
-        wsUrl: otpData.url,
-        accountId,
-      },
+      data: { wsUrl: otpData.url, accountId },
     });
   } catch (error) {
     logger.error('Failed to generate OTP', { error, accountId: req.params.accountId });
@@ -144,18 +114,12 @@ router.post('/:accountId/otp', async (req: Request, res: Response, next: NextFun
   }
 });
 
-/**
- * GET /api/accounts/:accountId
- * Get specific account details
- */
 router.get('/:accountId', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const token = (req as any).token;
     const accountId = req.params.accountId;
-
     const derivAPI = new DerivAPIService(token);
     const accountsData = await derivAPI.getAccounts();
-
     const account = accountsData.data?.find((acc: any) => acc.account_id === accountId);
 
     if (!account) {
@@ -169,10 +133,7 @@ router.get('/:accountId', async (req: Request, res: Response, next: NextFunction
 
     res.json({
       success: true,
-      data: {
-        account,
-        meta: accountsData.meta,
-      },
+      data: { account, meta: accountsData.meta },
     });
   } catch (error) {
     logger.error('Failed to retrieve account details', { error, accountId: req.params.accountId });
