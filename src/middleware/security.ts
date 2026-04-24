@@ -1,11 +1,11 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response, NextFunction, RequestHandler } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { config } from '@config/index.js';
 import logger from '@utils/logger.js';
 
-// Helmet middleware - sets security headers
+// Helmet middleware
 export const helmetMiddleware = helmet({
   contentSecurityPolicy: {
     directives: {
@@ -20,23 +20,20 @@ export const helmetMiddleware = helmet({
     includeSubDomains: true,
     preload: true,
   },
-  frameguard: {
-    action: 'deny',
-  },
+  frameguard: { action: 'deny' },
   noSniff: true,
   xssFilter: true,
 });
 
-// CORS middleware - configure cross-origin requests
+// CORS middleware
 export const corsMiddleware = cors({
-  origin: (origin, callback) => {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     const allowedOrigins = [
       config.frontend.url,
       config.frontend.prodUrl,
       'http://localhost:3000',
       'http://localhost:3001',
     ];
-
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -49,7 +46,7 @@ export const corsMiddleware = cors({
   maxAge: 86400,
 });
 
-// Rate limiting middleware
+// Rate limiting
 const createRateLimiter = (windowMs: number, max: number) =>
   rateLimit({
     windowMs,
@@ -57,35 +54,34 @@ const createRateLimiter = (windowMs: number, max: number) =>
     message: 'Too many requests from this IP, please try again later.',
     standardHeaders: true,
     legacyHeaders: false,
-    skip: (req) => config.server.isDevelopment,
-    keyGenerator: (req) => {
+    skip: (_req: Request) => config.server.isDevelopment,
+    keyGenerator: (req: Request) => {
       return (req.headers['x-forwarded-for'] as string) || req.ip || 'unknown';
     },
-    handler: (req, res) => {
+    handler: (req: Request, res: Response) => {
       logger.warn('Rate limit exceeded', { ip: req.ip });
+      // Acessa rateLimit via any para evitar erro de tipagem do @types/connect
+      const rl = (req as any).rateLimit;
       res.status(429).json({
         error: 'Too many requests',
-        retryAfter: req.rateLimit?.resetTime,
+        retryAfter: rl?.resetTime,
       });
     },
   });
 
-// General API rate limiter
 export const apiLimiter = createRateLimiter(
   config.rateLimit.windowMs,
   config.rateLimit.maxRequests
 );
 
-// Strict rate limiter for auth endpoints
 export const authLimiter = createRateLimiter(
-  15 * 60 * 1000, // 15 minutes
-  5 // 5 requests per 15 minutes
+  15 * 60 * 1000,
+  5
 );
 
-// WebSocket rate limiter
 export const wsLimiter = createRateLimiter(
-  1000, // 1 second
-  10 // 10 requests per second
+  1000,
+  10
 );
 
 // Request logging middleware
@@ -95,7 +91,6 @@ export const requestLoggerMiddleware = (
   next: NextFunction
 ) => {
   const start = Date.now();
-
   res.on('finish', () => {
     const duration = Date.now() - start;
     logger.info('Request completed', {
@@ -106,16 +101,16 @@ export const requestLoggerMiddleware = (
       ip: req.ip,
     });
   });
-
   next();
 };
 
-// Request sanitization middleware
-export const sanitizationMiddleware = express.json({
+// Anotação explícita de tipo RequestHandler resolve o erro TS2742
+// ("inferred type cannot be named without a reference to @types/connect")
+export const sanitizationMiddleware: RequestHandler = express.json({
   limit: '10mb',
 });
 
-export const urlEncodedMiddleware = express.urlencoded({
+export const urlEncodedMiddleware: RequestHandler = express.urlencoded({
   limit: '10mb',
   extended: true,
 });
