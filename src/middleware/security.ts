@@ -42,7 +42,12 @@ export const corsMiddleware = cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  // FIX: adicionado 'Deriv-App-ID' que a Deriv exige em todas as chamadas REST
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Deriv-App-ID',
+  ],
   maxAge: 86400,
 });
 
@@ -60,7 +65,6 @@ const createRateLimiter = (windowMs: number, max: number) =>
     },
     handler: (req: Request, res: Response) => {
       logger.warn('Rate limit exceeded', { ip: req.ip });
-      // Acessa rateLimit via any para evitar erro de tipagem do @types/connect
       const rl = (req as any).rateLimit;
       res.status(429).json({
         error: 'Too many requests',
@@ -104,13 +108,11 @@ export const requestLoggerMiddleware = (
   next();
 };
 
-// Anotação explícita de tipo RequestHandler resolve o erro TS2742
-// ("inferred type cannot be named without a reference to @types/connect")
 export const sanitizationMiddleware: RequestHandler = express.json({
   limit: '10mb',
 });
 
 export const urlEncodedMiddleware: RequestHandler = express.urlencoded({
-  limit: '10mb',
   extended: true,
+  limit: '10mb',
 });
