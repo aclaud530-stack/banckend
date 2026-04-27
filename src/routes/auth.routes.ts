@@ -59,8 +59,8 @@ router.get('/callback', authLimiter, async (req: Request, res: Response, next: N
 
     logger.info('User authenticated successfully', { userId: session.userId });
 
-    // Redireciona para o frontend com o token
-    return res.redirect(`${FRONTEND_URL}/dashboard?token=${session.accessToken}`);
+    // Redireciona para o frontend — /callback salva o token e redireciona para /dashboard
+    return res.redirect(`${FRONTEND_URL}/callback?token=${session.accessToken}`);
 
   } catch (error) {
     logger.error('Callback handling failed', { error });
