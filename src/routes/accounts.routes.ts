@@ -1,3 +1,4 @@
+// src/routes/accounts.routes.ts
 import { Router, Request, Response, NextFunction } from 'express';
 import { DerivAPIService } from '@services/deriv-api.service.js';
 import { AuthService } from '@services/auth.service.js';
